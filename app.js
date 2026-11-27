@@ -37,20 +37,22 @@ const STAGE = Object.fromEntries(WORKFLOW.map((s, i) => [s.id, { ...s, n: i + 1 
    interface shows, what each action and route allows, and what the database serves (see DB_RULES). */
 const PERMISSION_MODULES = [
   { id: 'players', label: 'Players', icon: 'player', actions: [
-    ['players.view', 'View players and profiles'],
-    ['players.create', 'Add players', ['players.view']],
-    ['players.edit', 'Edit player details', ['players.view']],
+    ['players.viewOwn', 'View own players (added by them or in their tasks)'],
+    ['players.view', 'View all players and profiles', ['players.viewOwn']],
+    ['players.create', 'Add players', ['players.viewOwn']],
+    ['players.edit', 'Edit player details', ['players.viewOwn']],
     ['players.delete', 'Delete players', ['players.view']],
     ['players.import', 'Import players from files', ['players.create']],
-    ['notes.view', 'View notes', ['players.view']],
-    ['notes.create', 'Write notes', ['notes.view']],
-    ['notes.editOwn', 'Edit and delete own notes', ['notes.view']],
+    ['notes.viewOwn', 'View own notes', ['players.viewOwn']],
+    ['notes.view', 'View all notes', ['notes.viewOwn']],
+    ['notes.create', 'Write notes', ['notes.viewOwn']],
+    ['notes.editOwn', 'Edit and delete own notes', ['notes.viewOwn']],
     ['notes.manage', 'Edit and delete others’ notes', ['notes.view']],
   ] },
   { id: 'scouting', label: 'Scouting', icon: 'eye', actions: [
     ['reports.viewOwn', 'View own reports'],
     ['reports.viewTeam', 'View team reports', ['reports.viewOwn']],
-    ['reports.create', 'Create reports', ['reports.viewOwn', 'players.view']],
+    ['reports.create', 'Create reports', ['reports.viewOwn', 'players.viewOwn']],
     ['reports.editOwn', 'Edit own reports', ['reports.viewOwn']],
     ['reports.editOthers', 'Edit others’ reports', ['reports.viewTeam']],
     ['reports.deleteOwn', 'Delete own reports', ['reports.viewOwn']],
@@ -123,22 +125,21 @@ const ROLES = {
   chief_scout: {
     label: 'Chief Scout', share: 'Contributor',
     desc: 'Leads the scouting department: reports, assignments and shortlists. No confidential finances.',
-    grants: ['players.view', 'players.create', 'players.edit', 'players.import', 'notes.view', 'notes.create', 'notes.editOwn',
+    grants: ['players.viewOwn', 'players.view', 'players.create', 'players.edit', 'players.import', 'notes.viewOwn', 'notes.view', 'notes.create', 'notes.editOwn',
       'reports.viewOwn', 'reports.viewTeam', 'reports.create', 'reports.editOwn', 'reports.deleteOwn',
       'assignments.viewOwn', 'assignments.viewAll', 'assignments.create', 'assignments.manage', 'criteria.view', 'criteria.manage',
       'shortlists.view', 'shortlists.create', 'shortlists.edit', 'shortlists.delete', 'shadow.view', 'shadow.edit', 'shadow.addPlayers', 'users.view'],
   },
   scout: {
     label: 'Scout', share: 'Contributor',
-    desc: 'Day-to-day scouting: players, own reports, own assignments and shortlists.',
-    grants: ['players.view', 'players.create', 'players.edit', 'notes.view', 'notes.create', 'notes.editOwn',
-      'reports.viewOwn', 'reports.create', 'reports.editOwn', 'reports.deleteOwn', 'assignments.viewOwn', 'criteria.view',
-      'shortlists.view', 'shadow.view'],
+    desc: 'Day-to-day scouting. Sees only what they create — their players, reports and notes — and the tasks given to them.',
+    grants: ['players.viewOwn', 'players.create', 'players.edit', 'notes.viewOwn', 'notes.create', 'notes.editOwn',
+      'reports.viewOwn', 'reports.create', 'reports.editOwn', 'reports.deleteOwn', 'assignments.viewOwn', 'criteria.view'],
   },
   analyst: {
     label: 'Analyst', share: 'Contributor',
     desc: 'Prepared for later configuration. Starts with viewing players only.',
-    grants: ['players.view'],
+    grants: ['players.viewOwn', 'players.view'],
   },
 };
 const INVITABLE_ROLES = ['sporting_director', 'chief_scout', 'scout', 'analyst'];
@@ -197,8 +198,11 @@ const CLUB = { name: 'Leixões S.C.', competition: 'Liga Portugal 2' };
 // The organization. Each club runs its own instance of the platform, with its own database and its
 // own share list, so one club's data can never be read from another club's instance.
 const ORG = { id: 'leixoes-sc', name: CLUB.name };
+// Where this copy runs: the hosted platform (own site, Supabase sign-in) or the claude.ai prototype.
+// The app is the same; only sign-in, invitations and their texts differ.
+const HOSTED = typeof window.SCOUTING_CONFIG === 'object' && window.SCOUTING_CONFIG !== null;
 // The platform's address, used in invitation messages.
-const APP_URL = location.origin;
+const APP_URL = HOSTED ? location.origin : 'https://claude.ai/artifact/FcFUgUyvDkfR5arMkXgThq';
 // Shown for the Owner when the platform does not give a display name.
 const OWNER_NAME = 'Hermógenes Morim';
 
@@ -522,6 +526,11 @@ const PT_TEXT = {
 
   // Permissions
   'View players and profiles': 'Ver jogadores e perfis',
+  'View own players (added by them or in their tasks)': 'Ver os próprios jogadores (que adicionou ou das suas tarefas)',
+  'View all players and profiles': 'Ver todos os jogadores e perfis',
+  'View own notes': 'Ver as próprias notas',
+  'View all notes': 'Ver todas as notas',
+  'Day-to-day scouting. Sees only what they create — their players, reports and notes — and the tasks given to them.': 'Scouting do dia a dia. Vê apenas o que cria — os seus jogadores, relatórios e notas — e as tarefas que lhe são atribuídas.',
   'Add players': 'Adicionar jogadores',
   'Edit player details': 'Editar dados dos jogadores',
   'Delete players': 'Eliminar jogadores',
@@ -1239,13 +1248,18 @@ const PT_TEXT = {
   'Your access from the Share menu is view-only. Ask the Owner to share the platform with you as Contributor or Editor, then reload.': 'O seu acesso no menu Share é só de leitura. Peça ao proprietário que partilhe a plataforma consigo como Contributor ou Editor e volte a carregar.',
   'If you were invited, request access. The Owner activates it from Users & Permissions.': 'Se foi convidado, peça acesso. O proprietário ativa-o em Utilizadores e permissões.',
   'Request access': 'Pedir acesso',
-  'Inviting here sets the role and permissions. The person creates an account with the invited email and gets in as soon as they confirm it.': 'O convite define o perfil e as permissões. A pessoa cria conta com o email do convite e entra assim que o confirmar.',
-  'They will create their account with this email.': 'A pessoa vai criar a conta com este email.',
+  'Inviting here sets the role and permissions, and the platform emails the invitation. The person chooses a password from that email and gets in.': 'O convite define o perfil e as permissões, e a plataforma envia-o por email. A pessoa escolhe a palavra-passe a partir desse email e entra.',
+  'The invitation email goes to this address.': 'O email de convite vai para este endereço.',
   'They create their account with this email and confirm it.': 'A pessoa cria a conta com este email e confirma-o.',
   'Their access opens by itself, with the role and permissions you chose.': 'O acesso abre-se sozinho, com o perfil e as permissões que escolheu.',
   'Sign out and sign in again with the email you were invited with.': 'Termine a sessão e entre de novo com o email para o qual foi convidado.',
   'Could not send the request. Try again in a moment.': 'Não foi possível enviar o pedido. Tente daqui a pouco.',
   'Sign out': 'Terminar sessão',
+  'Sending the invitation email…': 'A enviar o email de convite…',
+  'They open the email and choose their name and password.': 'A pessoa abre o email e escolhe o nome e a palavra-passe.',
+  'The invitation email could not be sent. Send them the message below, or send the email again later from Users & Permissions.': 'Não foi possível enviar o email de convite. Envie-lhe a mensagem abaixo, ou volte a enviar o email mais tarde em Utilizadores e permissões.',
+  'Send the invitation email again': 'Enviar de novo o email de convite',
+  'The invitation email could not be sent. Copy the message and send it yourself.': 'Não foi possível enviar o email de convite. Copie a mensagem e envie-a por si.',
 
   // Import
   'Yes': 'Sim',
@@ -1450,6 +1464,9 @@ const PT_PATTERNS = [
   [/^In (\d{4}\/\d{2}) squad$/, (m) => `No plantel ${m[1]}`],
   [/^Squad (\d{4}-\d{2})$/, (m) => `Plantel ${m[1]}`],
   [/^Added to the (.+) squad$/, (m) => `Adicionado ao plantel ${m[1]}`],
+  [/^Invitation sent to (.+)$/, (m) => `Convite enviado para ${m[1]}`],
+  [/^(.+) already has an account\. Their access opens the next time they sign in\.$/, (m) => `${m[1]} já tem conta. O acesso abre-se da próxima vez que entrar.`],
+  [/^After this, the platform emails the invitation to (.+)\. They choose a password from the email and get in straight away\.$/, (m) => `Depois disto, a plataforma envia o convite por email para ${m[1]}. A pessoa escolhe a palavra-passe a partir do email e entra logo.`],
   [/^(.+) can still sign in, but will not see any data\.$/, (m) => `${m[1] === 'Their account' ? 'A conta' : m[1]} continua a poder iniciar sessão, mas deixa de ver os dados.`],
   [/^This email is confirmed and matches the invitation as (.+)\.$/, (m, t) => `Este email está confirmado e corresponde ao convite como ${t(m[1])}.`],
   [/^After this, send (.+) the invitation message\. They get in as soon as they create their account with this email and confirm it\.$/, (m) => `Depois disto, envie a mensagem do convite para ${m[1]}. A pessoa entra assim que criar a conta com este email e o confirmar.`],
@@ -1723,7 +1740,7 @@ function deepMerge(base, patch) {
  * the viewer provides one; otherwise kept in memory for this visit only
  * (status 'memory'). Views read `list()` / `get()` and re-render on change.
  */
-function createStore(path, { prefix, normalize, compare }) {
+function createStore(path, { prefix, normalize, compare, stampAuthor = false }) {
   let status = 'idle';           // 'idle' (not started: no access) | 'connecting' | 'saved' | 'memory'
   let items = [];
   let col = null;
@@ -1813,7 +1830,8 @@ function createStore(path, { prefix, normalize, compare }) {
     get: (id) => (id && items.find((i) => i.id === id)) || null,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     set,
-    create: (body) => set(newId(), { ...body, createdAt: now() }),
+    // New documents can record who created them (used to limit what each person sees).
+    create: (body) => set(newId(), { ...(stampAuthor ? { createdBy: Viewer.id || '' } : {}), ...body, createdAt: now() }),
     update,
     remove,
   };
@@ -1829,6 +1847,7 @@ function createStore(path, { prefix, normalize, compare }) {
  */
 const PlayerStore = createStore('players', {
   prefix: 'p-',
+  stampAuthor: true,   // createdBy: who added the player; '' on players from before (the Owner's)
   normalize: (d) => ({
     ...d,
     name: String(d.name || 'Unnamed player'),
@@ -2131,6 +2150,37 @@ const canWorkAssignment = (q) => !!q && (can('assignments.manage') || (isMyAssig
 const canManageAssignment = (q) => !!q && (can('assignments.manage') || (isMyAssignment(q) && isMine(q.createdBy || q.assigneeId)));
 const visibleRequests = () => RequestStore.list().filter(canViewAssignment);
 const canEditNote = (n) => !!n && (isMine(n.authorId) ? can('notes.editOwn') : can('notes.manage'));
+// Players and notes each person sees: all of them with the "all" permissions; otherwise only the players
+// they added, the players of their own tasks and reports, and their own notes. The database applies the
+// same rule on the hosted platform, so nothing else ever reaches their browser.
+const scopePlayerIds = () => new Set([
+  ...RequestStore.list().filter(isMyAssignment).map((q) => q.playerId),
+  ...ReportStore.list().filter((r) => isMine(r.authorId)).map((r) => r.playerId),
+]);
+const seesAllPlayers = () => canAny('players.view', 'squad.view', 'shortlists.view', 'shadow.view');
+function canSeePlayer(p, scope) {
+  if (!p) return false;
+  if (seesAllPlayers()) return true;
+  if (!can('players.viewOwn')) return false;
+  return isMine(p.createdBy) || (scope || scopePlayerIds()).has(p.id);
+}
+const canSeeNote = (n) => !!n && (can('notes.view') || (can('notes.viewOwn') && isMine(n.authorId)));
+// Editing: anyone who sees all players and may edit; otherwise only the players they added themselves.
+const canEditPlayer = (p) => !!p && can('players.edit') && (can('players.view') || isMine(p.createdBy));
+{
+  const listAll = PlayerStore.list;
+  const getAny = PlayerStore.get;
+  PlayerStore.list = () => {
+    if (seesAllPlayers()) return listAll();
+    const scope = scopePlayerIds();
+    return listAll().filter((p) => canSeePlayer(p, scope));
+  };
+  PlayerStore.get = (id) => { const p = getAny(id); return canSeePlayer(p) ? p : null; };
+  const notesAll = NoteStore.list;
+  const noteAny = NoteStore.get;
+  NoteStore.list = () => (can('notes.view') ? notesAll() : notesAll().filter(canSeeNote));
+  NoteStore.get = (id) => { const n = noteAny(id); return canSeeNote(n) ? n : null; };
+}
 // Financial fields: the permission, and the server actually serving them to this person.
 const canSeeFinance = (key) => can(key) && FinanceStore.started();
 const financeFor = (playerId) => (FinanceStore.started() && FinanceStore.get(playerId)) || {};
@@ -2141,13 +2191,13 @@ const STORE_ACCESS = [
   [MemberStore, () => true],
   [JoinRequestStore, () => true],
   [SettingsStore, () => Access.state === 'ready'],
-  [PlayerStore, () => canAny('players.view', 'squad.view', 'shortlists.view', 'shadow.view')],
+  [PlayerStore, () => canAny('players.view', 'players.viewOwn', 'squad.view', 'shortlists.view', 'shadow.view')],
   [SquadStore, () => canAny('players.view', 'squad.view')],
   [NeedStore, () => canAny('shortlists.view', 'squad.view')],
   [ShadowTeamStore, () => can('shadow.view')],
   [ReportStore, () => canAny('reports.viewOwn', 'reports.viewTeam')],
   [RequestStore, () => canAny('assignments.viewOwn', 'assignments.viewAll')],
-  [NoteStore, () => can('notes.view')],
+  [NoteStore, () => canAny('notes.view', 'notes.viewOwn')],
   [FinanceStore, () => Viewer.isOwner && FINANCE_FIELDS.some(([, , key]) => can(key))],
   [InviteStore, () => Viewer.isOwner],
   [PresenceStore, () => Viewer.isOwner],
@@ -2569,7 +2619,7 @@ function renderDashboard() {
   // Each block appears only for people who may see what it summarises.
   const show = {
     priorities: can('shortlists.view'), squad: can('squad.view'), assignments: canAny('assignments.viewOwn', 'assignments.viewAll'),
-    review: can('players.view'), reports: canAny('reports.viewOwn', 'reports.viewTeam'),
+    review: canAny('players.view', 'players.viewOwn'), reports: canAny('reports.viewOwn', 'reports.viewTeam'),
   };
   const kpis = [
     show.reports && { label: 'Players scouted', value: String(new Set(seasonReports.map((r) => r.playerId)).size), sub: 'Season to date' },
@@ -3032,7 +3082,7 @@ function renderPlayerDatabase() {
       <label class="search" for="db-q">${icon('search')}<span class="sr-only">Search players</span><input id="db-q" class="input" type="search" data-input="db-search" placeholder="Search name, club, nationality" value="${esc(state.db.q)}" autocomplete="off"></label>
       ${UI.select({ id: 'db-pos', change: 'db-pos', value: state.db.pos, ariaLabel: 'Position', options: [{ value: '', label: 'All positions' }, ...PLAYER_POSITIONS.map((x) => ({ value: x.id, label: `${x.id} · ${x.label}` }))] })}
       ${UI.select({ id: 'db-status', change: 'db-status', value: state.db.status, ariaLabel: 'Internal status', options: [{ value: '', label: 'All statuses' }, ...INTERNAL_STATUS.map((x) => ({ value: x.id, label: x.id === 'monitoring' ? 'Monitoring (watchlist)' : x.label })), { value: 'closed', label: 'Not for us' }] })}
-      <div class="seg" role="group" aria-label="Show">${scopes.map(([v, l]) => `<button type="button" class="seg__btn${state.db.scope === v ? ' is-active' : ''}" aria-pressed="${state.db.scope === v}" data-action="db-scope" data-id="${v}">${l}</button>`).join('')}</div>
+      ${SquadStore.started() ? `<div class="seg" role="group" aria-label="Show">${scopes.map(([v, l]) => `<button type="button" class="seg__btn${state.db.scope === v ? ' is-active' : ''}" aria-pressed="${state.db.scope === v}" data-action="db-scope" data-id="${v}">${l}</button>`).join('')}</div>` : ''}
     </div>
     <section class="panel" id="db-results">${dbResults()}</section>`;
   }
@@ -3739,6 +3789,7 @@ function renderDesignSystem() {
 
 /* ---- View registry: add each module here as it is built ---- */
 /* ---- 6x. Settings › Users & Permissions ---- */
+const SHARE_LEVEL = { admin: 'Editor', interact: 'Contributor', view: 'Viewer' };   // prototype only
 const roleDefaults = (roleId) => effectivePermissions(roleId, {});
 // For people other than the Owner, permissions the server keeps for the Owner are shown but not granted.
 const grantable = (key) => !ownerOnlyOnServer(key);
@@ -3840,7 +3891,7 @@ function renderUsers() {
       if (r.kind === 'owner') actions = `<span class="lock-note" title="The Owner always keeps full access">${icon('lock')}</span>`;
       else if (r.kind === 'member') actions = UI.menu({ id: `mem-${r.id}`, label: 'Member actions', items: [{ label: 'Role and permissions', icon: 'shield', action: 'member-open', data: d }, { sep: true }, { label: 'Remove from organization', icon: 'trash', action: 'member-remove', data: d, danger: true }] });
       else if (r.kind === 'request') actions = `<div class="row-actions">${UI.btn({ label: 'Activate', variant: 'primary', action: 'request-activate', data: d, cls: 'btn--sm' })}${UI.btn({ label: 'Decline', variant: 'ghost', action: 'request-decline', data: d, cls: 'btn--sm' })}</div>`;
-      else actions = UI.menu({ id: `inv-${r.id}`, label: 'Invitation actions', items: [{ label: 'Copy invitation message', icon: 'note', action: 'invite-copy', data: d }, { sep: true }, { label: 'Revoke invitation', icon: 'x', action: 'invite-revoke', data: d, danger: true }] });
+      else actions = UI.menu({ id: `inv-${r.id}`, label: 'Invitation actions', items: [...(HOSTED ? [{ label: 'Send the invitation email again', icon: 'share', action: 'invite-send', data: d }] : []), { label: 'Copy invitation message', icon: 'note', action: 'invite-copy', data: d }, { sep: true }, { label: 'Revoke invitation', icon: 'x', action: 'invite-revoke', data: d, danger: true }] });
       return `<tr>
         <td class="wrap">${nameCell}</td>
         <td class="wrap">${r.email ? esc(r.email) : none}</td>
@@ -3856,7 +3907,7 @@ function renderUsers() {
     <section class="panel">
       <div class="panel__head"><div class="panel__heading"><h2 class="panel__title">Members</h2><span class="panel__meta">${counts.members}${counts.waiting ? ` · ${counts.waiting} waiting for approval` : ''}</span></div></div>
       ${body}
-      <p class="panel-foot">${icon('info')}<span>Inviting here sets the role and permissions. The person creates an account with the invited email and gets in as soon as they confirm it.</span></p>
+      <p class="panel-foot">${icon('info')}<span>${HOSTED ? 'Inviting here sets the role and permissions, and the platform emails the invitation. The person chooses a password from that email and gets in.' : 'Inviting here sets the role and permissions. Access to the platform itself is given from the Share menu, with the same email.'}</span></p>
     </section>
   </div>`;
 }
@@ -3869,6 +3920,11 @@ function openMemberDialog(userId) {
   const editRole = can('users.editRole');
   const editPerms = can('users.editPermissions');
   const pres = PresenceStore.get(userId);
+  const level = pres && SHARE_LEVEL[pres.level];
+  const levelWarn = !HOSTED && pres && pres.level === 'admin' && m.role !== 'sporting_director';
+  const lastField = HOSTED
+    ? `<div class="field"><span class="field-label">Last active</span><div class="member-level">${pres && pres.lastActive ? `<span class="num">${esc(relTime(pres.lastActive))}</span>` : '<span class="faint">Not seen yet</span>'}</div></div>`
+    : `<div class="field"><span class="field-label">Share menu access</span><div class="member-level">${level ? `<span>${esc(level)}</span>` : '<span class="faint">Not seen yet</span>'}${pres && pres.lastActive ? `<span class="faint small">· last active ${esc(relTime(pres.lastActive))}</span>` : ''}</div></div>`;
   openDialog(`<form class="dlg-body" data-form="member" data-id="${esc(userId)}" novalidate>
     <div class="member-head">
       <span class="avatar avatar--lg" aria-hidden="true">${esc(initials(personName(userId)))}</span>
@@ -3877,8 +3933,9 @@ function openMemberDialog(userId) {
     </div>
     <div class="field-row">
       <div class="field"><label for="f-member-role">Role</label>${UI.select({ id: 'f-member-role', name: 'role', value: m.role, change: 'member-role', disabled: !editRole, options: INVITABLE_ROLES.map((r) => ({ value: r, label: ROLES[r].label })) })}</div>
-      <div class="field"><span class="field-label">Last active</span><div class="member-level">${pres && pres.lastActive ? `<span class="num">${esc(relTime(pres.lastActive))}</span>` : '<span class="faint">Not seen yet</span>'}</div></div>
+      ${lastField}
     </div>
+    ${levelWarn ? `<p class="perm-note perm-note--warn">${icon('alert')}<span>Editor access in the Share menu also lets this person publish new versions of the platform. Contributor is enough for this role when your Claude plan offers it.</span></p>` : ''}
     <p class="small faint">${editRole ? 'Changing the role resets the permissions to that role’s defaults.' : ''}</p>
     <div class="sec-head"><h3 class="sec-title">Access</h3></div>
     <div class="dlg-scroll dlg-scroll--perm">${permissionEditor(set, m.role, { editable: editPerms })}</div>
@@ -3895,7 +3952,7 @@ function openRemoveMemberDialog(userId) {
   openDialog(`<form class="dlg-body" data-form="member-remove" data-id="${esc(userId)}">
     <h2 class="dlg-title" id="dlg-title">Remove ${esc(personName(userId))}?</h2>
     <p class="dlg-text">They lose access to every area straight away. Their reports, notes and assignments stay.</p>
-    <p class="dlg-text">${esc(email || 'Their account')} can still sign in, but will not see any data.</p>
+    <p class="dlg-text">${HOSTED ? `${esc(email || 'Their account')} can still sign in, but will not see any data.` : `To stop them opening the platform at all, also remove ${esc(email || 'them')} from the Share menu.`}</p>
     ${dialogActions('Remove', { variant: 'danger' })}
   </form>`);
 }
@@ -3913,8 +3970,8 @@ function openActivateDialog(userId) {
   openDialog(`<form class="dlg-body" data-form="activate" data-id="${esc(userId)}" novalidate>
     <h2 class="dlg-title" id="dlg-title">Activate access</h2>
     <div class="dlg-player"><span class="avatar">${esc(initials(personName(userId)))}</span><div><div class="cell-strong">${esc(personName(userId))}</div><div class="cell-sub">${esc(verified || req.email || 'Email not available')}</div></div></div>
-    ${match ? `<p class="perm-note perm-note--ok">${icon('check')}<span>This email is confirmed and matches the invitation as ${esc(roleLabel(match.role))}.</span></p>`
-      : `<p class="perm-note perm-note--warn">${icon('alert')}<span>This email does not match any open invitation. Check it is the person you invited, then choose their invitation.</span></p>`}
+    ${match ? `<p class="perm-note perm-note--ok">${icon('check')}<span>${HOSTED ? `This email is confirmed and matches the invitation as ${esc(roleLabel(match.role))}.` : `claude.ai confirms this email, and it matches the invitation as ${esc(roleLabel(match.role))}.`}</span></p>`
+      : `<p class="perm-note perm-note--warn">${icon('alert')}<span>${verified || HOSTED ? 'This email does not match any open invitation.' : 'claude.ai shows the name of the person, not their email.'} Check it is the person you invited, then choose their invitation.</span></p>`}
     ${choice}
     ${dialogActions('Activate', { disabled: !pending.length })}
   </form>`);
@@ -3934,7 +3991,7 @@ function renderInviteDialog() {
   let body = '';
   if (invite.step === 1) {
     body = `${F.text('email', 'Email', invite.email, { type: 'email', error: 'Enter a valid email address.', placeholder: 'name@club.pt', extra: { maxlength: 120, autocomplete: 'off' } })}
-      <p class="small faint">They will create their account with this email.</p>
+      <p class="small faint">${HOSTED ? 'The invitation email goes to this address.' : 'Use the email of their Claude account. You will share the platform with the same email.'}</p>
       ${foot('', 'Next')}`;
   } else if (invite.step === 2) {
     body = `<fieldset class="role-opts"><legend class="sr-only">Role</legend>${INVITABLE_ROLES.map((r) => `<label class="role-opt"><input type="radio" name="role" value="${r}"${invite.role === r ? ' checked' : ''}><span><b>${esc(ROLES[r].label)}</b><small>${esc(ROLES[r].desc)}</small></span></label>`).join('')}</fieldset>
@@ -3949,17 +4006,37 @@ function renderInviteDialog() {
         <div><dt>Role</dt><dd>${esc(ROLES[invite.role].label)}</dd></div>
       </dl>
       <ul class="review-access">${PERMISSION_MODULES.map((mod) => `<li><span>${esc(mod.label)}</span>${levelChip(moduleLevel(mod, invite.perms))}</li>`).join('')}</ul>
-      <p class="perm-note">${icon('info')}<span>After this, send ${esc(invite.email)} the invitation message. They get in as soon as they create their account with this email and confirm it.</span></p>
+      <p class="perm-note">${icon('info')}<span>${HOSTED ? `After this, the platform emails the invitation to ${esc(invite.email)}. They choose a password from the email and get in straight away.` : `After this, share the platform with ${esc(invite.email)} from the Share menu, as ${esc(ROLES[invite.role].share)}. They get in once they request access and you activate it.`}</span></p>
       ${foot(back(3), 'Create invitation')}`;
   } else {
-    body = `<p class="ns-saved">${icon('check')}Invitation created</p>
+    const message = `<div class="field"><label for="f-invite-msg">Message</label><textarea id="f-invite-msg" class="textarea" rows="7" readonly>${esc(inviteMessage(invite.email, invite.role))}</textarea></div>
+      <div class="dlg-actions">${UI.btn({ label: 'Copy message', iconName: 'note', action: 'invite-copy', data: { 'data-id': invite.created || '' } })}<button type="button" class="btn btn--primary" data-action="close-dialog">Done</button></div>`;
+    if (!HOSTED) {
+      body = `<p class="ns-saved">${icon('check')}Invitation created</p>
       <ol class="next-steps">
+        <li>Open the <b>Share</b> menu of this platform and share it with <b>${esc(invite.email)}</b> as <b>${esc(ROLES[invite.role].share)}</b>.</li>
         <li>Send them the message below.</li>
-        <li>They create their account with this email and confirm it.</li>
+        <li>When they open the platform and request access, activate them here.</li>
+      </ol>
+      ${message}`;
+    } else if (!invite.sent) {
+      body = `<p class="ns-saved">${icon('check')}Invitation created</p><p class="loading">Sending the invitation email…</p>`;
+    } else if (invite.sent.status === 'sent') {
+      body = `<p class="ns-saved">${icon('check')}Invitation sent to ${esc(invite.email)}</p>
+      <ol class="next-steps">
+        <li>They open the email and choose their name and password.</li>
         <li>Their access opens by itself, with the role and permissions you chose.</li>
       </ol>
-      <div class="field"><label for="f-invite-msg">Message</label><textarea id="f-invite-msg" class="textarea" rows="7" readonly>${esc(inviteMessage(invite.email, invite.role))}</textarea></div>
-      <div class="dlg-actions">${UI.btn({ label: 'Copy message', iconName: 'note', action: 'invite-copy', data: { 'data-id': invite.created || '' } })}<button type="button" class="btn btn--primary" data-action="close-dialog">Done</button></div>`;
+      ${message}`;
+    } else if (invite.sent.status === 'exists') {
+      body = `<p class="ns-saved">${icon('check')}Invitation created</p>
+      <p class="dlg-text">${esc(invite.email)} already has an account. Their access opens the next time they sign in.</p>
+      ${message}`;
+    } else {
+      body = `<p class="ns-saved">${icon('check')}Invitation created</p>
+      <p class="perm-note perm-note--warn">${icon('alert')}<span>The invitation email could not be sent. Send them the message below, or send the email again later from Users &amp; Permissions.</span></p>
+      ${message}`;
+    }
   }
   openDialog(`<form class="dlg-body" data-form="invite" data-step="${invite.step}" novalidate>
     <h2 class="dlg-title" id="dlg-title">Invite user</h2>
@@ -3967,13 +4044,24 @@ function renderInviteDialog() {
     ${body}
   </form>`, { wide: invite.step === 3 });
 }
-const inviteMessage = (email, role) => `Olá,
+const inviteMessage = (email, role) => (HOSTED ? `Olá,
 
 Convidei-te para a plataforma de scouting do ${ORG.name}, com o perfil ${inPortuguese(ROLES[role].label)}.
 
-1. Abre ${APP_URL}
-2. Escolhe "Criar conta" e usa este email: ${email}
-3. Confirma o email no link que vais receber. Depois entras logo com o teu perfil.`;
+1. Abre o email de convite que recebeste e carrega no link (se não o vires, procura no spam).
+2. Escolhe o teu nome e uma palavra-passe.
+3. A partir daí, entras em ${APP_URL} com o teu email (${email}).` : `Olá,
+
+Convidei-te para a plataforma de scouting do ${ORG.name}, com o perfil ${inPortuguese(ROLES[role].label)}.
+
+1. Abre ${APP_URL} com a tua conta Claude (${email}).
+2. Clica em "Pedir acesso" ("Request access", se a plataforma estiver em inglês).
+3. Eu ativo o teu acesso.`);
+// Hosted platform: the invitation email is sent by the server, only for an open invitation of the Owner.
+async function sendInvitation(email) {
+  if (!HOSTED || !window.ScoutingAuth || typeof window.ScoutingAuth.sendInvite !== 'function') return { status: 'error' };
+  try { return (await window.ScoutingAuth.sendInvite(email)) || { status: 'error' }; } catch (e) { return { status: 'error' }; }
+}
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* fall back below */ }
   const ta = document.createElement('textarea');
@@ -4014,11 +4102,11 @@ const noteOf = (el) => NoteStore.get(el.dataset.id);
 const ACTION_GUARDS = {
   'player-action': (el) => (el.dataset.id === 'scout' ? can('reports.create') : el.dataset.id === 'shortlist' ? can('shortlists.create') : false),
   'player-new': 'players.create',
-  'player-edit': 'players.edit',
-  'pos-edit': 'players.edit',
-  'player-reopen': 'players.edit',
+  'player-edit': () => canEditPlayer(currentPlayer()),
+  'pos-edit': () => canEditPlayer(currentPlayer()),
+  'player-reopen': (el) => canEditPlayer(PlayerStore.get(el.dataset.id) || currentPlayer()),
   'player-delete': 'players.delete',
-  'open-player': 'players.view',
+  'open-player': () => canAny('players.view', 'players.viewOwn'),
   'import-open': (el) => can('players.import') && (!el.dataset.squad || can('squad.edit')),
   'imp-template': 'players.import',
   'imp-paste': 'players.import',
@@ -4068,6 +4156,7 @@ const ACTION_GUARDS = {
   'user-invite': 'users.invite',
   'invite-step': 'users.invite',
   'invite-copy': 'users.invite',
+  'invite-send': 'users.invite',
   'invite-revoke': 'users.invite',
   'member-open': 'users.view',
   'member-remove': 'users.remove',
@@ -4086,8 +4175,8 @@ const FORM_GUARDS = {
   'note-delete': (f) => canEditNote(NoteStore.get(f.dataset.id)),
   'player-new': 'players.create',
   'pick-player-new': () => can('reports.create') && can('players.create'),
-  'player-edit': 'players.edit',
-  'positions': 'players.edit',
+  'player-edit': (f) => canEditPlayer(PlayerStore.get(f.dataset.id)),
+  'positions': (f) => canEditPlayer(PlayerStore.get(f.dataset.id)),
   'player-delete': 'players.delete',
   'squad-new': () => can('squad.edit') && can('players.create'),
   'squad-member': 'squad.edit',
@@ -4172,12 +4261,13 @@ function renderAccessScreen() {
     case 'checking':
       return `<div class="page"><section class="panel"><div class="loading">Checking your access…</div></section></div>`;
     case 'unknown':
-      return box('lock', 'We couldn’t confirm your account', 'Sign out and sign in again with the email you were invited with.');
+      return box('lock', 'We couldn’t confirm your account', HOSTED ? 'Sign out and sign in again with the email you were invited with.' : 'Sign in to claude.ai with the account you were invited with, then reload this page.');
     case 'pending':
       return box('clock', 'Access requested', `${ORG.name} will let you in once your access is activated. This page updates by itself.`);
     case 'suspended':
       return box('lock', 'Your access is paused', `Ask the Owner of ${ORG.name} to reactivate it.`);
     default:
+      if (!HOSTED && Viewer.level === 'view') return box('lock', `You don’t have access to ${ORG.name} yet`, 'Your access from the Share menu is view-only. Ask the Owner to share the platform with you as Contributor or Editor, then reload.');
       return box('users', `You don’t have access to ${ORG.name} yet`, 'If you were invited, request access. The Owner activates it from Users & Permissions.',
         UI.btn({ label: 'Request access', variant: 'primary', action: 'access-request' }));
   }
@@ -4202,8 +4292,8 @@ const isBuilt = (id) => !!VIEWS[id];
 // Which pages each person may open. Hidden pages are also refused when opened by address.
 const PAGE_ACCESS = {
   'dashboard': () => true,
-  'players-database': () => can('players.view'),
-  'player-profile': () => can('players.view'),
+  'players-database': () => canAny('players.view', 'players.viewOwn'),
+  'player-profile': () => canAny('players.view', 'players.viewOwn'),
   'scouting-reports': () => canAny('reports.viewOwn', 'reports.viewTeam'),
   'scouting-assignments': () => canAny('assignments.viewOwn', 'assignments.viewAll'),
   'scouting-criteria': () => can('criteria.view'),
@@ -4219,11 +4309,10 @@ function renderSidebar() {
   const topItem = (p) => `<a class="nav-item" href="#${p.id}" data-route="${p.id}">${icon(p.icon)}<span>${esc(p.label)}</span></a>`;
   const sections = SECTIONS.map((s) => ({ ...s, pages: s.pages.filter((p) => canOpenPage(p.id)) })).filter((s) => s.pages.length);
   const ready = Access.state === 'ready';
-  const groups = sections.map((s) => `<div class="nav-group" data-section="${s.id}">
-      <button type="button" class="nav-item nav-group__head" data-toggle="${s.id}" aria-expanded="false" aria-controls="nav-${s.id}">
-        ${icon(s.icon)}<span>${esc(s.label)}</span>${icon('chevron', 'chev')}
-      </button>
-      <ul class="nav-sub" id="nav-${s.id}">
+  // Every section stays open: all pages are one click away.
+  const groups = sections.map((s) => `<div class="nav-group is-open" data-section="${s.id}">
+      <div class="nav-item nav-group__head" id="nav-head-${s.id}">${icon(s.icon)}<span>${esc(s.label)}</span></div>
+      <ul class="nav-sub" id="nav-${s.id}" aria-labelledby="nav-head-${s.id}">
         ${s.pages.map((p) => `<li><a href="#${p.id}" data-route="${p.id}">${esc(p.label)}</a></li>`).join('')}
       </ul>
     </div>`).join('');
@@ -4266,11 +4355,7 @@ function syncSidebar(page) {
     else a.removeAttribute('aria-current');
   });
   $$('#sidebar .nav-group').forEach((g) => {
-    const id = g.dataset.section;
-    const open = !!state.groupOpen[id];
-    g.classList.toggle('is-current', !!page.section && page.section.id === id);
-    g.classList.toggle('is-open', open);
-    g.querySelector('[data-toggle]').setAttribute('aria-expanded', String(open));
+    g.classList.toggle('is-current', !!page.section && page.section.id === g.dataset.section);
   });
 }
 
@@ -4309,7 +4394,6 @@ function setDrawer(open) { $('#app').classList.toggle('is-drawer-open', open); }
    --------------------------------------------------------------------- */
 const state = {
   route: null,
-  groupOpen: {},
   playerId: null,          // set when a player is opened from the Player Database or the squad
   db: { q: '', pos: '', scope: 'all', status: '' },
   needs: { selected: null, scope: 'active', pickQ: '' },
@@ -4369,7 +4453,6 @@ function navigate(id, { record = true } = {}) {
   const page = PAGES[id];
   const changed = state.route !== id;
   state.route = id;
-  if (changed) state.groupOpen = page.section ? { [page.section.id]: true } : {};
   renderTopbar(page);
   syncSidebar(page);
   renderView();
@@ -5033,7 +5116,7 @@ function validateReport(form, data) {
 }
 
 // Who may carry out the step a recommendation proposes.
-const nextStepAllowed = (r) => !!r && ({ sign: can('shortlists.create'), again: can('assignments.viewOwn') }[r.recommendation] ?? can('players.edit'));
+const nextStepAllowed = (r) => !!r && ({ sign: can('shortlists.create'), again: can('assignments.viewOwn') }[r.recommendation] ?? canEditPlayer(PlayerStore.get(r.playerId)));
 
 // After a new report: propose the next step for its recommendation; the user confirms or skips.
 function openNextStep(reportId) {
@@ -5567,7 +5650,7 @@ function exportSheets() {
   const num = (v) => (v === null || v === undefined || v === '' ? '' : Number(v));
   const fin = FINANCE_FIELDS.filter(([, , key]) => canSeeFinance(key));
   const sheets = [];
-  if (can('players.view')) {
+  if (canAny('players.view', 'players.viewOwn')) {
     sheets.push({ name: 'Players', cols: [['Name', 28], ['Full name', 30], ['Position', 10], ['Secondary positions', 18], ['Date of birth', 13], ['Nationality', 16], ['Second nationality', 16], ['Height (cm)', 11], ['Foot', 8], ['Club', 22], ['Competition', 20], [`In ${SEASON.label} squad`, 14], ['Internal status', 16], ['Review on', 12], ['Not for us', 14], ['Closed on', 12], ['Contract until', 13], ['Current contract', 22], ['Option', 16], ['Agent', 18], ['Loan', 16], ...fin.map(([, l]) => [l, 16]), ['Created', 12], ['Updated', 12]],
       rows: PlayerStore.list().map((p) => { const c = p.contract || {}; const f = financeFor(p.id); return [p.name, p.fullName, L(p.position), codes(p.secondaryPositions), p.birthDate, L(p.nationality), L(p.secondNationality), num(p.heightCm), L(FEET[p.foot] || ''), p.club, p.competition, yes(squadMember(p.id)), label(INTERNAL_STATUS, p.internalStatus || 'untracked'), p.reviewOn, p.closed ? L(CLOSE_REASONS[p.closed.reason] || 'Yes') : '', p.closed ? p.closed.date : '', c.endDate, c.current, c.option, c.agent, c.loan, ...fin.map(([k]) => f[k] || ''), day(p.createdAt), day(p.updatedAt)]; }) });
   }
@@ -5589,7 +5672,7 @@ function exportSheets() {
     sheets.push({ name: 'Assignments', cols: [['Watch by', 12], ['Player', 28], ['Match', 26], ['Need', 24], ['Status', 10], ['Note', 40], ['Assigned to', 20]],
       rows: visibleRequests().map((q) => [q.dueBy, name(q.playerId), q.match, need(q.needId), VOCAB.requestStatus[q.status] ? tr(VOCAB.requestStatus[q.status][0], 'status') : q.status, q.note, L(authorName(q.assigneeId, q.scout))]) });
   }
-  if (can('notes.view')) {
+  if (canAny('notes.view', 'notes.viewOwn')) {
     sheets.push({ name: 'Notes', cols: [['Date', 17], ['Player', 28], ['Category', 12], ['Note', 80], ['Author', 20]],
       rows: NoteStore.list().map((n) => [noteStamp(n), name(n.playerId), L(noteCategoryLabel(n.category)), n.text, n.imported ? L('Imported') : L(authorName(n.authorId, n.author))]) });
   }
@@ -5991,6 +6074,15 @@ const ACTIONS = {
     const ok = await copyText(text);
     toast(ok ? 'Message copied' : 'Copy did not work here. Select the text and copy it.', ok ? 'check' : 'alert');
   },
+  'invite-send': async (el) => {
+    const inv = InviteStore.get(el.dataset.id);
+    if (!inv) return;
+    toast('Sending the invitation email…', 'info');
+    const r = await sendInvitation(inv.email);
+    if (r.status === 'sent') toast(`Invitation sent to ${inv.email}`, 'check');
+    else if (r.status === 'exists') toast(`${inv.email} already has an account. Their access opens the next time they sign in.`, 'check');
+    else toast('The invitation email could not be sent. Copy the message and send it yourself.', 'alert');
+  },
   'invite-revoke': async (el) => {
     try { await InviteStore.remove(el.dataset.id); toast('Invitation revoked', 'check'); } catch (err) { toast(SAVE_ERROR, 'alert'); }
   },
@@ -6016,7 +6108,7 @@ const ACTIONS = {
       await JoinRequestStore.set(Viewer.id, { email: Viewer.email || '', requestedAt: new Date().toISOString() });
       applyMembership();
       refresh();
-    } catch (err) { toast('Could not send the request. Try again in a moment.', 'alert'); }
+    } catch (err) { toast(HOSTED ? 'Could not send the request. Try again in a moment.' : 'Could not send the request. Your access from the Share menu may be view-only.', 'alert'); }
   },
   'note-edit': (el) => openNoteDialog(NoteStore.get(el.dataset.id)),
   'note-delete': (el) => openDeleteNoteDialog(NoteStore.get(el.dataset.id)),
@@ -6332,7 +6424,16 @@ const FORMS = {
       try {
         invite.created = await InviteStore.create({ email: invite.email, role: invite.role, overrides: overridesFrom(invite.perms, invite.role), status: 'pending', invitedAt: new Date().toISOString(), invitedBy: Viewer.id || '' });
         invite.step = 5;
+        invite.sent = null;
       } catch (err) { toast(SAVE_ERROR, 'alert'); return; }
+      if (HOSTED) {
+        const mine = invite;
+        renderInviteDialog();
+        const result = await sendInvitation(mine.email);
+        mine.sent = result;
+        if (invite === mine && dlg.open && dlg.querySelector('form[data-form="invite"]')) renderInviteDialog();
+        return;
+      }
     }
     renderInviteDialog();
   },
@@ -6590,13 +6691,6 @@ document.addEventListener('click', (e) => {
     setDrawer(false);
     state.needs.selected = null;   // a navigation link always opens the page's main view
     navigate(routeEl.dataset.route);
-    return;
-  }
-  const toggle = e.target.closest('[data-toggle]');
-  if (toggle) {
-    const id = toggle.dataset.toggle;
-    state.groupOpen[id] = !state.groupOpen[id];
-    syncSidebar(PAGES[state.route]);
     return;
   }
   const act = e.target.closest('[data-action]');

@@ -238,11 +238,10 @@ ul,ol{margin:0;padding:0;list-style:none}
 .nav-item.is-active .ico{color:var(--accent)}
 .nav-sep{height:1px;background:var(--line);margin:var(--sp-2) 10px}
 
-.nav-group__head .chev{margin-left:auto;width:14px;height:14px;transition:transform .15s;color:var(--text-3)}
+.nav-group__head,.nav-group__head:hover{cursor:default;background:none;color:var(--text-2)}
 .nav-group.is-current > .nav-group__head{color:var(--text)}
 .nav-group.is-current > .nav-group__head .ico:first-child{color:var(--accent)}
-.nav-group:not(.is-open) .chev{transform:rotate(-90deg)}
-.nav-group:not(.is-open) .nav-sub{display:none}
+.nav-group + .nav-group{margin-top:4px}
 .nav-sub{position:relative;margin:2px 0 var(--sp-2);padding-left:18px}
 .nav-sub::before{content:"";position:absolute;left:17px;top:3px;bottom:3px;width:1px;background:var(--line)}
 .nav-sub a{

@@ -46,6 +46,9 @@
       resetTitle: 'Choose a new password',
       savePassword: 'Save password',
       passwordSaved: 'Password saved.',
+      welcomeTitle: 'Welcome to the platform',
+      welcomeText: '{club} invited you to the platform. Choose the name others will see and your password.',
+      enter: 'Enter the platform',
       errEmail: 'Enter a valid email address.',
       errName: 'Enter your name.',
       errPasswordShort: 'Use at least 8 characters.',
@@ -87,6 +90,9 @@
       resetTitle: 'Escolha uma nova palavra-passe',
       savePassword: 'Guardar palavra-passe',
       passwordSaved: 'Palavra-passe guardada.',
+      welcomeTitle: 'Bem-vindo à plataforma',
+      welcomeText: 'O {club} convidou-o para a plataforma. Escolha o nome que os outros vão ver e a sua palavra-passe.',
+      enter: 'Entrar na plataforma',
       errEmail: 'Escreva um email válido.',
       errName: 'Escreva o seu nome.',
       errPasswordShort: 'Use pelo menos 8 caracteres.',
@@ -128,7 +134,9 @@
 
   /* ---------- Sign-in screens ---------- */
   let screen = { name: 'loading', args: {} };
-  let recovering = linkType === 'recovery';
+  // An invitation link signs the person in; they choose a name and password before entering.
+  let recovering = linkType === 'recovery' || linkType === 'invite';
+  const setupScreen = () => (linkType === 'invite' ? 'welcome' : 'reset');
   let started = false;
 
   const field = (id, label, type, attrs = '') => `<div class="field"><label for="${id}">${esc(label)}</label><input id="${id}" class="input" type="${type}" name="${id}" ${attrs}></div>`;
@@ -171,6 +179,16 @@
         <button type="submit" class="btn btn--primary">${esc(t('sendLink'))}</button>
       </form>`}
       <div class="auth-links">${link('signin', t('backToSignin'))}</div>`,
+    welcome: () => `
+      <h1 class="auth-title">${esc(t('welcomeTitle'))}</h1>
+      <p class="auth-text">${esc(t('welcomeText', { club: CFG.club || '' }))}</p>
+      <form class="auth-form" data-form="welcome" novalidate>
+        ${field('a-name', t('name'), 'text', 'autocomplete="name" maxlength="80" required')}
+        ${field('a-password', t('password'), 'password', 'autocomplete="new-password" minlength="8" required')}
+        ${field('a-password2', t('repeatPassword'), 'password', 'autocomplete="new-password" minlength="8" required')}
+        <p class="auth-msg auth-msg--error" data-error hidden></p>
+        <button type="submit" class="btn btn--primary">${esc(t('enter'))}</button>
+      </form>`,
     reset: () => `
       <h1 class="auth-title">${esc(t('resetTitle'))}</h1>
       <form class="auth-form" data-form="reset" novalidate>
@@ -249,6 +267,21 @@
       const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: here() });
       if (error) return fail(form, errText(error));
       show('forgot', { sent: true });
+    },
+    async welcome(form) {
+      const name = form.elements['a-name'].value.trim();
+      const password = form.elements['a-password'].value;
+      const again = form.elements['a-password2'].value;
+      if (!name) return fail(form, t('errName'));
+      if (password.length < 8) return fail(form, t('errPasswordShort'));
+      if (password !== again) return fail(form, t('errPasswordMatch'));
+      const { error } = await client.auth.updateUser({ password, data: { name } });
+      if (error) return fail(form, errText(error));
+      recovering = false;
+      history.replaceState(null, '', here());
+      const { data } = await client.auth.getSession();
+      if (data && data.session) return startApp(data.session);
+      show('signin', { info: t('passwordSaved') });
     },
     async reset(form) {
       const password = form.elements['a-password'].value;
@@ -471,6 +504,12 @@
     window.claude = { use: async (name) => services[name] || null };
     window.ScoutingAuth = {
       email: user.email || '',
+      // Asks the server to email an invitation (it checks that the Owner is asking and the invitation is open).
+      async sendInvite(email) {
+        const { data, error } = await client.functions.invoke('send-invite', { body: { email, redirectTo: here() } });
+        if (error) return { status: 'error' };
+        return data && data.status ? data : { status: 'error' };
+      },
       async signOut() {
         try { await client.auth.signOut(); } catch (err) { /* leave anyway */ }
         location.replace(here());
@@ -486,6 +525,7 @@
 
   client.auth.onAuthStateChange((event, session) => {
     if (event === 'PASSWORD_RECOVERY') { recovering = true; if (!started) show('reset'); return; }
+    if (recovering && session && !started && screen.name !== setupScreen()) { setTimeout(() => show(setupScreen()), 0); return; }
     if (event === 'SIGNED_OUT' && started) location.replace(here());
     if (event === 'SIGNED_IN' && session && !started && !recovering) setTimeout(() => startApp(session), 0);
   });
@@ -495,7 +535,7 @@
     if (linkError) { show('signin', { error: t('errLink') }); history.replaceState(null, '', here()); return; }
     let session = null;
     try { session = (await client.auth.getSession()).data.session; } catch (err) { session = null; }
-    if (recovering) { show('reset'); return; }
+    if (recovering) { if (session) show(setupScreen()); else show('signin', { error: t('errLink') }); return; }
     if (session) { await startApp(session); return; }
     if (!started) show('signin');
   })();

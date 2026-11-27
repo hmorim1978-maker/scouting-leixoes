@@ -23,12 +23,31 @@ As permissões aplicam-se em três níveis:
 
 O proprietário é identificado pelo email confirmado guardado em `public.app_config` (fora deste repositório).
 
-Os testes de permissões estão em `supabase/tests/rls_test.sql`. Correm dentro de uma transação que é sempre desfeita.
+Os testes de permissões estão em `supabase/tests/rls_test.sql` e `supabase/tests/rls_scope_test.sql`. Correm dentro de uma transação que é sempre desfeita.
+
+### O que cada scout vê
+
+Um Scout só vê o que é dele:
+- **Jogadores**: os que ele próprio adicionou (`createdBy`) e os das suas tarefas e dos seus relatórios.
+- **Relatórios, tarefas e notas**: só os seus.
+- Não vê o plantel, as necessidades, as equipas sombra, a área financeira, os utilizadores nem o trabalho de outros scouts.
+
+Só edita os jogadores que adicionou. Quem tem "Ver todos os jogadores" (Diretor desportivo, Chief scout, Analista) vê a base de dados inteira. O proprietário pode alargar ou reduzir o acesso de cada pessoa em Utilizadores e permissões.
 
 ## Convites
 
 1. O proprietário convida em Definições › Utilizadores e permissões (email, perfil, permissões).
-2. A pessoa cria conta com esse email e confirma-o.
-3. Ao entrar, o acesso abre-se sozinho com o perfil do convite.
+2. A plataforma envia o email de convite (Edge Function `send-invite`, que só aceita pedidos do proprietário para convites em aberto).
+3. A pessoa abre o link, escolhe o nome e a palavra-passe e entra; o acesso abre-se com o perfil do convite.
 
-Para os emails de confirmação chegarem a pessoas fora da equipa do Supabase, é preciso configurar um serviço de email (SMTP) no Supabase.
+No Supabase é preciso:
+- **SMTP próprio** (Authentication › Emails › SMTP Settings): sem ele, o Supabase só envia emails para a equipa do projeto.
+- **URL Configuration**: Site URL `https://scouting-leixoes.netlify.app` e Redirect URL `https://scouting-leixoes.netlify.app/**`.
+
+## Protótipo
+
+O protótipo no claude.ai é gerado a partir destes mesmos ficheiros:
+
+    python3 tools/build-prototype.py saida.html
+
+Sem `config.js`, `app.js` corre em modo protótipo (armazenamento e contas do claude.ai). Qualquer alteração à app chega aos dois.

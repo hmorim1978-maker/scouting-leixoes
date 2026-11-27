@@ -69,7 +69,19 @@
       return { data: { user: { id }, session: null }, error: null };
     },
     async resetPasswordForEmail(email, opts) { calls.push({ auth: 'reset', email, redirect: opts && opts.redirectTo }); return { data: {}, error: null }; },
-    async updateUser({ password }) { calls.push({ auth: 'update' }); return { data: {}, error: null }; },
+    async updateUser({ password, data }) {
+      calls.push({ auth: 'update', name: data && data.name });
+      if (!session) return { data: {}, error: { message: 'Auth session missing!' } };
+      const u = [...db.users.values()].find((x) => x.id === session.user.id);
+      if (u && password) u.password = password;
+      if (u && data && data.name) {
+        u.name = data.name;
+        db.profiles.set(u.id, { id: u.id, email: u.email, name: data.name });
+        session.user.user_metadata = { ...session.user.user_metadata, name: data.name };
+        persist(); fire('USER_UPDATED');
+      }
+      return { data: { user: session.user }, error: null };
+    },
     async signOut() { calls.push({ auth: 'signout' }); session = null; persist(); fire('SIGNED_OUT'); return { error: null }; },
     onAuthStateChange(fn) { authSubs.add(fn); return { data: { subscription: { unsubscribe() { authSubs.delete(fn); } } } }; },
   };
@@ -79,7 +91,19 @@
     if (!session) return { data: null, error: { message: 'not signed in' } };
     const uid = session.user.id;
     if (name === 'am_i_owner') return { data: !!(db.ownerEmail && session.user.email.toLowerCase() === db.ownerEmail), error: null };
-    if (name === 'accept_invite') return { data: 'none', error: null };
+    if (name === 'accept_invite') {
+      // Mirrors app.accept_invite_impl: a confirmed person with an open invitation for their email joins.
+      if (db.ownerEmail && session.user.email.toLowerCase() === db.ownerEmail) return { data: 'owner', error: null };
+      if (db.docs.has(key('members', uid))) return { data: 'member', error: null };
+      const em = session.user.email.toLowerCase();
+      const inv = [...db.docs.values()].find((r) => r.collection === 'invites' && String(r.data.email || '').toLowerCase() === em && (r.data.status || 'pending') === 'pending');
+      if (!inv) return { data: 'none', error: null };
+      const stamp = new Date().toISOString();
+      const member = { collection: 'members', id: uid, data: { userId: uid, role: inv.data.role || 'scout', overrides: inv.data.overrides || {}, status: 'active', email: em, inviteId: inv.id, joinedAt: stamp, updatedAt: stamp } };
+      db.docs.set(key('members', uid), member); emit('INSERT', member);
+      inv.data = { ...inv.data, status: 'accepted', userId: uid, updatedAt: stamp }; emit('UPDATE', inv);
+      return { data: 'joined', error: null };
+    }
     if (name === 'doc_set') {
       const k = key(args.c, args.i); const existed = db.docs.has(k);
       const row = { collection: args.c, id: args.i, data: JSON.parse(JSON.stringify(args.d)) };
@@ -99,6 +123,17 @@
     createClient(url, key) {
       return {
         auth, rpc, from: query,
+        functions: {
+          async invoke(fn, opts) {
+            calls.push({ fn, body: opts && opts.body });
+            if (!session) return { data: null, error: { message: 'not signed in' } };
+            if (fn !== 'send-invite') return { data: null, error: { message: 'unknown function ' + fn } };
+            if (!(db.ownerEmail && session.user.email.toLowerCase() === db.ownerEmail)) return { data: { status: 'forbidden' }, error: null };
+            const email = String((opts && opts.body && opts.body.email) || '').toLowerCase();
+            if (db.users.has(email)) return { data: { status: 'exists' }, error: null };
+            return { data: { status: db.inviteResult || 'sent' }, error: null };
+          },
+        },
         channel(name) {
           const ch = { name, handlers: [], on(type, filter, fn) { ch.handlers.push(fn); return ch; }, subscribe(cb) { channels.add(ch); setTimeout(() => cb && cb('SUBSCRIBED'), 0); return ch; } };
           return ch;
@@ -112,6 +147,8 @@
     seed(rows) { rows.forEach((r) => db.docs.set(key(r.collection, r.id), r)); },
     user(email, password, name, confirmed = true) { const id = crypto.randomUUID(); db.users.set(email.toLowerCase(), { id, email, password, name, confirmed }); db.profiles.set(id, { id, email, name }); return id; },
     owner(email) { db.ownerEmail = email.toLowerCase(); },
+    // As if an emailed link had just signed this person in.
+    signInAs(email) { const u = db.users.get(email.toLowerCase()); session = { access_token: 't-' + u.id, user: { id: u.id, email: u.email, user_metadata: { name: u.name } } }; persist(); },
     external(eventType, row) { if (eventType === 'DELETE') db.docs.delete(key(row.collection, row.id)); else db.docs.set(key(row.collection, row.id), row); emit(eventType, eventType === 'DELETE' ? null : row, eventType === 'DELETE' ? { collection: row.collection, id: row.id } : null); },
   };
 })();
