@@ -4,7 +4,9 @@
    Each page: short header (where am I, main action) → one primary
    block → secondary detail behind tabs, accordions and menus.
    Three themes, chosen by each person in the sidebar footer:
-   Light (default, white background), Dark, Premium (graphite and gold).
+   Light (default, white background), Dark, Premium (ivory and gold).
+   The sidebar always contrasts with the page: dark on the light themes,
+   light on the dark theme (its own tokens, scoped to .sidebar).
    ===================================================================== */
 :root{
   color-scheme: light;
@@ -91,39 +93,93 @@
   --pop-shadow:0 14px 36px rgba(0,0,0,.45);
 }
 
-/* Premium: warm graphite neutrals, gold accent; the alert hue leans orange so it never reads as the accent */
+/* Premium: warm ivory neutrals, gold accent; the alert hue leans orange so it never reads as the accent */
 :root[data-theme="premium"]{
+  color-scheme: light;
+  --bg:#FBF8F1;
+  --bg-sidebar:#1E1913;
+  --surface:#FFFDF9;
+  --surface-2:#F6F1E6;
+  --surface-3:#EDE5D3;
+  --pitch:#F3EDDF;
+  --line:#EAE2D0;
+  --line-strong:#D8CBAE;
+  --text:#231E16;
+  --text-2:#5A5143;
+  --text-3:#73685A;
+  --accent:#B08A36;
+  --accent-strong:#7A5A14;
+  --accent-soft:rgba(184,145,63,.14);
+  --accent-line:rgba(176,138,54,.45);
+  --on-accent:#1C1408;
+  --positive:#2A7047;
+  --positive-soft:rgba(42,112,71,.12);
+  --warning:#A9521C;
+  --warning-soft:rgba(200,100,42,.12);
+  --danger:#B23A2E;
+  --danger-soft:rgba(178,58,46,.10);
+  --pop:#FFFDF9;
+  --scrim:rgba(30,24,16,.35);
+  --pop-shadow:0 10px 28px rgba(60,44,20,.14),0 2px 6px rgba(60,44,20,.07);
+}
+/* Dark text on gold: hover goes lighter, so the label stays readable */
+:root[data-theme="premium"] .btn--primary:hover{background:#C29B47}
+:root[data-theme="premium"] .btn--primary[aria-disabled="true"]:hover,:root[data-theme="premium"] .btn--primary:disabled:hover{background:var(--accent)}
+
+/* Sidebar: its own palette, always in contrast with the page */
+.sidebar{
   color-scheme: dark;
-  --bg:#121110;
-  --bg-sidebar:#100F0E;
-  --surface:#191816;
-  --surface-2:#201F1C;
-  --surface-3:#292724;
-  --pitch:#161513;
-  --line:#2A2825;
-  --line-strong:#3D3A35;
-  --text:#EEE9E0;
-  --text-2:#B7B0A4;
-  --text-3:#8E877B;
-  --accent:#C8A35A;
-  --accent-strong:#E0C384;
-  --accent-soft:rgba(200,163,90,.14);
-  --accent-line:rgba(200,163,90,.42);
-  --on-accent:#17120A;
-  --positive:#5DBB8A;
-  --positive-soft:rgba(93,187,138,.13);
-  --warning:#E8843F;
-  --warning-soft:rgba(232,132,63,.14);
-  --danger:#E8695E;
-  --danger-soft:rgba(232,105,94,.13);
-  --pop:#201F1C;
-  --scrim:rgba(6,5,4,.64);
-  --pop-shadow:0 14px 36px rgba(0,0,0,.5);
+  color:var(--text);
+  --bg-sidebar:#141A22;
+  --surface:#1A212A;
+  --surface-2:#1F2731;
+  --surface-3:#28323E;
+  --line:#253040;
+  --line-strong:#334052;
+  --text:#E8ECF0;
+  --text-2:#A9B3BE;
+  --text-3:#8A95A1;
+  --accent:#6D9CFF;
+  --accent-strong:#A5C2FF;
+  --accent-soft:rgba(109,156,255,.16);
+  --accent-line:rgba(109,156,255,.42);
+}
+:root[data-theme="dark"] .sidebar{
+  color-scheme: light;
+  --bg-sidebar:#E9EDF2;
+  --surface:#F3F5F8;
+  --surface-2:#DCE2E9;
+  --surface-3:#D0D8E1;
+  --line:#D4DAE1;
+  --line-strong:#C3CBD4;
+  --text:#161B22;
+  --text-2:#46505C;
+  --text-3:#5B6672;
+  --accent:#2F63D8;
+  --accent-strong:#234FB5;
+  --accent-soft:rgba(47,99,216,.12);
+  --accent-line:rgba(47,99,216,.40);
+}
+:root[data-theme="premium"] .sidebar{
+  color-scheme: dark;
+  --bg-sidebar:#1E1913;
+  --surface:#251F18;
+  --surface-2:#2A231B;
+  --surface-3:#352C22;
+  --line:#3A3127;
+  --line-strong:#4A3F32;
+  --text:#F3EBDD;
+  --text-2:#C2B49C;
+  --text-3:#9E907A;
+  --accent:#D4AF5F;
+  --accent-strong:#E8CB8A;
+  --accent-soft:rgba(212,175,95,.16);
+  --accent-line:rgba(212,175,95,.45);
 }
 :root[data-theme="dark"] .dlg::backdrop{background:rgba(4,6,8,.62)}
-:root[data-theme="premium"] .dlg::backdrop{background:rgba(6,5,4,.64)}
+:root[data-theme="premium"] .dlg::backdrop{background:rgba(30,24,16,.35)}
 :root[data-theme="dark"] .select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 6.5 8 10l3.5-3.5' fill='none' stroke='%237A8591' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
-:root[data-theme="premium"] .select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 6.5 8 10l3.5-3.5' fill='none' stroke='%238E877B' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+:root[data-theme="premium"] .select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 6.5 8 10l3.5-3.5' fill='none' stroke='%2373685A' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
 
 /* ============================ BASE ============================ */
 *,*::before,*::after{box-sizing:border-box}
@@ -165,6 +221,8 @@ ul,ol{margin:0;padding:0;list-style:none}
   background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--accent-strong);
   font:600 12px/1 var(--font-display);letter-spacing:.04em;
 }
+.sb-logo{width:28px;height:28px;flex:none;display:block}
+.auth-brand .sb-logo{width:32px;height:32px}
 .sb-name{min-width:0;font:600 14.5px/1.1 var(--font-display);letter-spacing:.02em}
 
 .sb-nav{flex:1;min-height:0;overflow-y:auto;padding:var(--sp-3) var(--sp-2) var(--sp-4);display:flex;flex-direction:column;gap:2px}
@@ -204,7 +262,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .theme-dot{width:8px;height:8px;border-radius:50%;flex:none;border:1px solid}
 .theme-dot--light{background:#FFFFFF;border-color:#C9CFD6}
 .theme-dot--dark{background:#13171C;border-color:#6D9CFF}
-.theme-dot--premium{background:#191816;border-color:#C8A35A}
+.theme-dot--premium{background:#FBF8F1;border-color:#C8A35A}
 
 /* ---- Header ---- */
 .topbar{

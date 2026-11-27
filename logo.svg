@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Scouting e Recrutamento">
+  <!-- The scout's eye ("olheiro"): white eye, gold iris, on a black tile -->
+  <rect x="1" y="1" width="62" height="62" rx="15" fill="#111111"/>
+  <rect x="1.75" y="1.75" width="60.5" height="60.5" rx="14.25" fill="none" stroke="#C9A24A" stroke-opacity=".7" stroke-width="1.5"/>
+  <path d="M9 32C15.5 21.5 23 17 32 17s16.5 4.5 23 15c-6.5 10.5-14 15-23 15S15.5 42.5 9 32Z" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linejoin="round"/>
+  <circle cx="32" cy="32" r="10" fill="#C9A24A"/>
+  <circle cx="32" cy="32" r="4.2" fill="#111111"/>
+  <circle cx="35.6" cy="28.4" r="2" fill="#FFFFFF"/>
+</svg>

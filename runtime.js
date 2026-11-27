@@ -187,7 +187,7 @@
     authEl.hidden = false;
     authEl.innerHTML = `<div class="auth-card">
       <div class="auth-top">
-        <div class="auth-brand"><span class="sb-mark" aria-hidden="true">SR</span><div><div class="sb-name">${esc(t('brand'))}</div><div class="auth-club">${esc(CFG.club || '')}</div></div></div>
+        <div class="auth-brand"><img class="sb-logo" src="logo.svg" alt="" width="32" height="32"><div><div class="sb-name">${esc(t('brand'))}</div><div class="auth-club">${esc(CFG.club || '')}</div></div></div>
         <div class="seg seg--lang" role="group" aria-label="Language">${['pt', 'en'].map((l) => `<button type="button" class="seg__btn${l === lang ? ' is-active' : ''}" data-lang="${l}" aria-pressed="${l === lang}" translate="no">${l.toUpperCase()}</button>`).join('')}</div>
       </div>
       <section class="panel auth-panel">${SCREENS[name](args)}</section>

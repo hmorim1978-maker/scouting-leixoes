@@ -4230,7 +4230,7 @@ function renderSidebar() {
 
   $('#sidebar').innerHTML = `
     <div class="sb-brand">
-      <span class="sb-mark" aria-hidden="true">SR</span>
+      <img class="sb-logo" src="logo.svg" alt="" width="28" height="28">
       <span class="sb-name">Scouting &amp; Recruitment</span>
     </div>
     <nav class="sb-nav" aria-label="Modules">
